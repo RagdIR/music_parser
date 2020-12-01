@@ -5,8 +5,8 @@ import requests
 import logging
 import collections
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger('parser')
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('SUPER.KG')
 
 ParseMusic = collections.namedtuple(
     'ParseMusic',
@@ -17,6 +17,10 @@ ParseMusic = collections.namedtuple(
 )
 
 MUSIC_HOST = 'https://audio.super.kg/media/audio/'
+HEADERS = (
+    'Name',
+    'Track'
+)
 
 
 class Main:
@@ -34,6 +38,15 @@ class Main:
         request = self.session.get(url=url)
         request.raise_for_status()
         return request.text
+
+
+    def pages_count(self, text: str):
+        soup = bs4.BeautifulSoup(text, 'lxml')
+        pagination = soup.find('ul', class_='pagers').find_all('a')
+        page = pagination[-1].get('href')
+        last_page = page.strip('/media/useraudio/?pg=')
+        return last_page
+
 
     def parse_page(self, text: str):
         soup = bs4.BeautifulSoup(text, 'lxml')
@@ -59,47 +72,60 @@ class Main:
         # self.parse_audio(block=block)
 
     def parse_audio(self, item):
-        # logger.info(block)
-        # logger.info('=' * 100)
-
+        music = []
         block = item.find_all('div', class_='audio-item')
         # print(block)
         for music in block:
             title = music.find('div', class_='audio-item-title').get_text()
-            print(title)
+            title = title.replace('"', ' ').strip()
+            # print(title)
             if not title:
                 logger.error('no title')
                 return
 
             music_obj = MUSIC_HOST + music.get('data-file')
-            print(music_obj)
+            # print(music_obj)
             if not music_obj:
                 logger.error('no data-file')
                 return
-        #
-        # title = audio_block.find('div', class_='audio-item-title')
-        # print(title.get_text())
-        # if not title:
-        #     logger.error('no title')
-        #     return
+
+            self.music.append(ParseMusic(
+                title=title,
+                music_obj=music_obj
+                )
+            )
+
+            logger.debug('%s, %s', title, music_obj)
 
 
-        # title = title.get_text()
-        # title = title.replace('/', '|').strip()
+    def save(self, path):
+        with open(path, 'w', newline='') as file:
+            writer = csv.writer(file, delimiter='^', quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(HEADERS)
+            for item in self.music:
+                writer.writerow(item)
 
-        # logger.info('%s', title)
-        logger.info('=' * 100)
-
-    #
-    # def save(self, path):
-    #     with open(path, 'w', newline='') as file:
-    #         writer = csv.writer(file, delimiter='^')
-    #         writer.writerow([item['title'], item['music_obj']])
+    def parse_all():
+        html = get_html(URL)
+        if html.status_code == 200:
+            music = []
+            for page in range(1, int(get_pages_count(html.text)) + 1):
+                print(f'Parsing page: {page}')  # отладка
+                html = get_html(URL, params={'pg': page})
+                music.extend(get_content(html.text))
+                save(music, CSV)
+        else:
+            print("404 PAGE DOESN`T EXIST")
 
 
     def run(self):
+        path = '/home/ragdir/music/music.csv'
         text = self.load_page()
         self.parse_page(text=text)
+        logger.info(
+            f'Got {len(self.music)} tracks'
+        )
+        self.save(path=path)
 
 
 if __name__ == '__main__':
