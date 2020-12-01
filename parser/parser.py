@@ -1,3 +1,5 @@
+import csv
+
 import bs4
 import requests
 import logging
@@ -35,9 +37,8 @@ class Main:
 
     def parse_page(self, text: str):
         soup = bs4.BeautifulSoup(text, 'lxml')
-        items = soup.select('div.audio-block')
+        items = soup.findAll('div', class_='audio-block')
         # print(items)
-        # print(container)
         for item in items:
             self.parse_audio(item=item)
         # music = []
@@ -61,17 +62,26 @@ class Main:
         # logger.info(block)
         # logger.info('=' * 100)
 
-        audio_block = item.select('div.audio-item')
-        # print(audio_block)
-        if not audio_block:
-            logger.error('no audio-item')
-            return
+        block = item.find_all('div', class_='audio-item')
+        # print(block)
+        for music in block:
+            title = music.find('div', class_='audio-item-title').get_text()
+            print(title)
+            if not title:
+                logger.error('no title')
+                return
 
-        title = audio_block.select_one('div.audio-item-title')
-        print(title)
-        if not title:
-            logger.error('no title')
-            return
+            music_obj = MUSIC_HOST + music.get('data-file')
+            print(music_obj)
+            if not music_obj:
+                logger.error('no data-file')
+                return
+        #
+        # title = audio_block.find('div', class_='audio-item-title')
+        # print(title.get_text())
+        # if not title:
+        #     logger.error('no title')
+        #     return
 
 
         # title = title.get_text()
@@ -79,6 +89,13 @@ class Main:
 
         # logger.info('%s', title)
         logger.info('=' * 100)
+
+    #
+    # def save(self, path):
+    #     with open(path, 'w', newline='') as file:
+    #         writer = csv.writer(file, delimiter='^')
+    #         writer.writerow([item['title'], item['music_obj']])
+
 
     def run(self):
         text = self.load_page()
